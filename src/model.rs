@@ -32,6 +32,15 @@ pub struct Task {
     pub user_id: Option<String>,
     #[serde(default)]
     pub assignee_name: Option<String>,
+    /// Kaneo's task list sends each card's labels with it (2.46), so a listing
+    /// shows them with no read per card. A single-card read leaves this empty.
+    #[serde(default)]
+    pub labels: Vec<TaskLabel>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct TaskLabel {
+    pub name: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -177,6 +186,9 @@ pub struct SearchResults {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchHit {
+    /// The card's id, which ties a hit to its labels.
+    #[serde(default)]
+    pub id: Option<String>,
     pub title: String,
     #[serde(default)]
     pub project_slug: Option<String>,

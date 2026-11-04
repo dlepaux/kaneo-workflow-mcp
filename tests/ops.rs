@@ -696,14 +696,60 @@ async fn find_searches_every_workspace() {
             .and(query_param("workspaceId", ws))
             .and(query_param("type", "tasks"))
             .respond_with(ok_json(json!({"results": [
-                {"id": "x", "type": "task", "title": "Lean", "projectSlug": "WEB", "taskNumber": n,
+                {"id": format!("t{n}"), "type": "task", "title": "Lean", "projectSlug": "WEB", "taskNumber": n,
                  "status": "doing", "priority": "high", "description": "long text ignored"}
             ]})))
             .mount(&server)
             .await;
     }
+    // One label read per workspace with hits, never one per card.
+    for (ws, rows) in [
+        (
+            "w1",
+            json!([
+                {"id": "c1", "name": "security", "taskId": "t58"},
+                {"id": "c2", "name": "Dev", "taskId": "t58"},
+                {"id": "ws-dev", "name": "Dev", "taskId": null},
+                {"id": "c3", "name": "incident", "taskId": "t99"}
+            ]),
+        ),
+        (
+            "w2",
+            json!([{"id": "ws-dev", "name": "Dev", "taskId": null}]),
+        ),
+    ] {
+        Mock::given(method("GET"))
+            .and(path(format!("/api/label/workspace/{ws}")))
+            .respond_with(ok_json(rows))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
     let out = ops::find(&client(&server), "lean", None).await.unwrap();
-    assert_eq!(out, "WEB-58 doing high Lean\nWEB-7 doing high Lean");
+    assert_eq!(
+        out,
+        "WEB-58 doing high Lean · labels Dev, security\nWEB-7 doing high Lean"
+    );
+}
+
+#[tokio::test]
+async fn find_reads_no_labels_when_nothing_matches() {
+    let server = MockServer::start().await;
+    workspaces(&server, &["w1"]).await;
+    get(&server, "/api/search", json!({"results": []})).await;
+    let out = ops::find(&client(&server), "nothing", None).await.unwrap();
+    assert_eq!(out, "no match");
+    let paths: Vec<String> = server
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .map(|r| r.url.path().to_owned())
+        .collect();
+    assert!(
+        !paths.iter().any(|p| p.starts_with("/api/label")),
+        "{paths:?}"
+    );
 }
 
 #[tokio::test]

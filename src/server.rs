@@ -236,7 +236,7 @@ pub struct ProjectDescriptionArgs {
 #[tool_router]
 impl KaneoServer {
     #[tool(
-        description = "Read a card in one call: header, labels, relations, every DECISION comment, the newest comments and the description, in one call.",
+        description = "Read a card in one call: header (with the start and due dates), labels, relations, every DECISION comment, the newest comments and the description, in one call.",
         annotations(read_only_hint = true)
     )]
     async fn card_brief(&self, Parameters(a): Parameters<BriefArgs>) -> CallToolResult {
@@ -286,7 +286,7 @@ impl KaneoServer {
     }
 
     #[tool(
-        description = "A project's board: open columns list their cards, Backlog and the final column give counts, with the work-in-progress column against its cap.",
+        description = "A project's board: open columns list their cards with their labels, Backlog and the final column give counts, with the work-in-progress column against its cap.",
         annotations(read_only_hint = true)
     )]
     async fn board_digest(&self, Parameters(a): Parameters<DigestArgs>) -> CallToolResult {
@@ -299,7 +299,7 @@ impl KaneoServer {
     }
 
     #[tool(
-        description = "Find cards by ticket (ABC-12, ranked first) or by words, one line per card.",
+        description = "Find cards by ticket (ABC-12, ranked first) or by words, one line per card with its labels.",
         annotations(read_only_hint = true)
     )]
     async fn find(&self, Parameters(a): Parameters<FindArgs>) -> CallToolResult {
@@ -382,7 +382,7 @@ impl KaneoServer {
     }
 
     #[tool(
-        description = "A project's cards by creation date, newest first unless asked, one line each with a page header. Filter to one column.",
+        description = "A project's cards by creation date, newest first unless asked, one line each with its labels, under a page header. Filter to one column.",
         annotations(read_only_hint = true)
     )]
     async fn list_cards(&self, Parameters(a): Parameters<ListArgs>) -> CallToolResult {

@@ -351,20 +351,44 @@ pub async fn find(
     project: Option<&str>,
 ) -> Result<String, OpError> {
     let query = workflow::required("query", query)?;
+    let mut labels = render::CardLabels::new();
     let hits = match project.map(str::trim).filter(|s| !s.is_empty()) {
         Some(slug) => {
             let (ws, p) = project_by_slug(api, slug).await?;
-            api.search_tasks(&ws, query, Some(&p.id)).await?
+            let hits = api.search_tasks(&ws, query, Some(&p.id)).await?;
+            add_card_labels(api, &ws, &hits, &mut labels).await?;
+            hits
         }
         None => {
             let mut hits = Vec::new();
             for ws in api.workspaces().await? {
-                hits.extend(api.search_tasks(&ws.id, query, None).await?);
+                let found = api.search_tasks(&ws.id, query, None).await?;
+                add_card_labels(api, &ws.id, &found, &mut labels).await?;
+                hits.extend(found);
             }
             hits
         }
     };
-    Ok(render::search_hits(&hits))
+    Ok(render::search_hits(&hits, &labels))
+}
+
+/// The labels of a workspace's cards, read once for all its hits: a search hit
+/// carries none, and one read per hit would spend the key's shared rate limit.
+async fn add_card_labels(
+    api: &KaneoClient,
+    workspace: &str,
+    hits: &[crate::model::SearchHit],
+    labels: &mut render::CardLabels,
+) -> Result<(), OpError> {
+    if hits.is_empty() {
+        return Ok(());
+    }
+    for row in api.workspace_labels(workspace).await? {
+        if let Some(task) = row.task_id {
+            labels.entry(task).or_default().push(row.name);
+        }
+    }
+    Ok(())
 }
 
 fn ticket_of(slug: &str, number: Option<u32>, id: &str) -> String {
