@@ -1,0 +1,5 @@
+# The toolchain CI and releases build with. The MSRV is Cargo.toml's rust-version.
+[toolchain]
+channel = "1.94.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

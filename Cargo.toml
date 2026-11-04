@@ -1,0 +1,34 @@
+[package]
+name = "kaneo-workflow-mcp"
+version = "1.0.0"
+edition = "2024"
+# The floor set by the dependencies (uuid); CI builds at it.
+rust-version = "1.89"
+description = "An opinionated Kaneo MCP server that enforces a card workflow: work-in-progress caps, lifecycle comments and decisions of record"
+license = "MIT"
+repository = "https://github.com/dlepaux/kaneo-workflow-mcp"
+readme = "README.md"
+keywords = ["kaneo", "mcp", "kanban", "model-context-protocol"]
+categories = ["command-line-utilities"]
+# Released as signed binaries on GitHub, not on crates.io.
+publish = false
+
+[dependencies]
+chrono = "0.4.45"
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+rmcp = { version = "3.8.0", features = ["server", "transport-io", "macros", "schemars"] }
+schemars = "1"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "2"
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "io-std"] }
+url = "2"
+
+[dev-dependencies]
+tokio = { version = "1.54.1", features = ["process", "io-util"] }
+wiremock = "0.6.5"
+
+# One self-contained binary per platform: small matters more than build time.
+[profile.release]
+lto = true
+strip = true

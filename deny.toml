@@ -1,0 +1,31 @@
+# cargo deny check: advisories, licences, bans and sources, run in CI on every push.
+
+[graph]
+all-features = false
+
+[advisories]
+# Every advisory fails the build; a waiver goes here with its reason and an expiry card.
+ignore = []
+
+[licenses]
+# Permissive licences only: the binary is MIT and ships its dependencies inside it.
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
