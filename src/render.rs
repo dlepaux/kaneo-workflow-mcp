@@ -30,6 +30,22 @@ fn day(iso: &str) -> &str {
     iso.get(..10).unwrap_or(iso)
 }
 
+/// ` · labels a, b`, sorted so every tool prints a card's labels alike, or
+/// nothing for a card with none.
+fn labels_of(names: &[&str]) -> String {
+    if names.is_empty() {
+        return String::new();
+    }
+    let mut sorted = names.to_vec();
+    sorted.sort_unstable();
+    format!(" · labels {}", sorted.join(", "))
+}
+
+fn task_labels(t: &Task) -> String {
+    let names: Vec<&str> = t.labels.iter().map(|l| l.name.as_str()).collect();
+    labels_of(&names)
+}
+
 fn minute(iso: &str) -> String {
     iso.get(..16).unwrap_or(iso).replace('T', " ")
 }
@@ -68,6 +84,9 @@ pub fn card_brief(b: &Brief<'_>) -> String {
         t.status,
         t.priority.as_deref().unwrap_or("no-priority")
     );
+    if let Some(start) = &t.start_date {
+        out.push_str(&format!(" · start {}", day(start)));
+    }
     if let Some(due) = &t.due_date {
         out.push_str(&format!(" · due {}", day(due)));
     }
@@ -75,10 +94,8 @@ pub fn card_brief(b: &Brief<'_>) -> String {
     if let Some(who) = &t.assignee_name {
         out.push_str(&format!(" · assignee {who}"));
     }
-    if !b.labels.is_empty() {
-        let names: Vec<&str> = b.labels.iter().map(|l| l.name.as_str()).collect();
-        out.push_str(&format!(" · labels {}", names.join(", ")));
-    }
+    let names: Vec<&str> = b.labels.iter().map(|l| l.name.as_str()).collect();
+    out.push_str(&labels_of(&names));
 
     if !b.relations.is_empty() {
         out.push_str("\n\n## Relations");
@@ -196,25 +213,35 @@ pub fn board_digest(
             if let Some(due) = &t.due_date {
                 out.push_str(&format!(" · due {}", day(due)));
             }
+            out.push_str(&task_labels(t));
         }
     }
     out
 }
 
-pub fn search_hits(hits: &[SearchHit]) -> String {
+/// Label names by card id.
+pub type CardLabels = HashMap<String, Vec<String>>;
+
+pub fn search_hits(hits: &[SearchHit], labels: &CardLabels) -> String {
     if hits.is_empty() {
         return "no match".to_owned();
     }
     let lines: Vec<String> = hits
         .iter()
         .map(|h| {
+            let names: Vec<&str> =
+                h.id.as_ref()
+                    .and_then(|id| labels.get(id))
+                    .map(|names| names.iter().map(String::as_str).collect())
+                    .unwrap_or_default();
             format!(
-                "{}-{} {} {} {}",
+                "{}-{} {} {} {}{}",
                 h.project_slug.as_deref().unwrap_or("?"),
                 h.task_number.map_or("?".to_owned(), |n| n.to_string()),
                 h.status.as_deref().unwrap_or("-"),
                 h.priority.as_deref().unwrap_or("-"),
-                h.title
+                h.title,
+                labels_of(&names)
             )
         })
         .collect();
@@ -248,6 +275,7 @@ pub fn card_list(l: &CardList<'_>) -> String {
         if let Some(due) = &t.due_date {
             out.push_str(&format!(" · due {}", day(due)));
         }
+        out.push_str(&task_labels(t));
     }
     if l.tasks.is_empty() {
         out.push_str("\nno cards");
@@ -501,6 +529,58 @@ mod tests {
         );
     }
 
+    fn labelled(names: &[&str]) -> Task {
+        Task {
+            labels: names
+                .iter()
+                .map(|n| crate::model::TaskLabel { name: (*n).into() })
+                .collect(),
+            ..task()
+        }
+    }
+
+    #[test]
+    fn brief_shows_the_start_date_before_the_due_date() {
+        let t = Task {
+            start_date: Some("2026-11-04T21:32:00.000Z".into()),
+            description: None,
+            ..task()
+        };
+        let slugs = Slugs::new();
+        let b = Brief {
+            ticket: "WEB-58",
+            task: &t,
+            labels: &[],
+            relations: &[],
+            comments: &[],
+            slugs: &slugs,
+            recent: 5,
+            ids: false,
+        };
+        assert_eq!(
+            card_brief(&b),
+            "WEB-58 Lean server · doing · high · start 2026-11-04 · due 2026-11-01\nid t58"
+        );
+    }
+
+    #[test]
+    fn card_list_lines_carry_labels() {
+        let tasks = [labelled(&["operator-decision"]), task()];
+        let out = card_list(&CardList {
+            slug: "WEB",
+            page: 1,
+            total_pages: 1,
+            total: Some(2),
+            tasks: &tasks,
+        });
+        let lines: Vec<&str> = out.lines().collect();
+        assert!(
+            lines[1].ends_with("· due 2026-11-01 · labels operator-decision"),
+            "{out}"
+        );
+        assert!(lines[2].ends_with("· due 2026-11-01"), "{out}");
+    }
+
     #[test]
     fn digest_lists_open_columns_and_counts_the_rest() {
         let col = |slug: &str, name: &str, is_final: bool, tasks: Vec<Task>| BoardColumn {
@@ -511,7 +591,12 @@ mod tests {
         };
         let columns = vec![
             col("backlog", "Backlog", false, vec![task()]),
-            col("doing", "Doing", false, vec![task()]),
+            col(
+                "doing",
+                "Doing",
+                false,
+                vec![labelled(&["security", "Dev"])],
+            ),
             col("done", "Done", true, vec![task(), task()]),
         ];
         let wip = |cap| {
@@ -523,7 +608,7 @@ mod tests {
         };
         assert_eq!(
             board_digest("WEB", "Web", &columns, wip(Some(3)), false),
-            "WEB Web · Doing 1/3\n\n## Backlog (1)\n\n## Doing (1)\nWEB-58 high Lean server · due 2026-11-01\n\n## Done (2)"
+            "WEB Web · Doing 1/3\n\n## Backlog (1)\n\n## Doing (1)\nWEB-58 high Lean server · due 2026-11-01 · labels Dev, security\n\n## Done (2)"
         );
         // No cap stated: the header carries no count.
         assert!(board_digest("WEB", "Web", &columns, wip(None), false).starts_with("WEB Web\n\n"));
@@ -533,15 +618,24 @@ mod tests {
 
     #[test]
     fn search_hits_are_one_line_each() {
-        let hit = SearchHit {
+        let hit = |id: &str| SearchHit {
+            id: Some(id.into()),
             title: "Lean server".into(),
             project_slug: Some("WEB".into()),
             task_number: Some(58),
             status: Some("doing".into()),
             priority: Some("high".into()),
         };
-        assert_eq!(search_hits(&[hit]), "WEB-58 doing high Lean server");
-        assert_eq!(search_hits(&[]), "no match");
+        let labels = CardLabels::from([("t58".into(), vec!["security".into(), "Dev".into()])]);
+        assert_eq!(
+            search_hits(&[hit("t58")], &labels),
+            "WEB-58 doing high Lean server · labels Dev, security"
+        );
+        assert_eq!(
+            search_hits(&[hit("t9")], &labels),
+            "WEB-58 doing high Lean server"
+        );
+        assert_eq!(search_hits(&[], &labels), "no match");
     }
 
     #[test]

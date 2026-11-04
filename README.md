@@ -128,21 +128,21 @@ Provenance: who decided
 
 | Tool | What it does |
 | --- | --- |
-| `card_brief` | Header, labels, relations, every DECISION comment, the newest comments and the description, in one call. |
+| `card_brief` | Header (with the start and due dates), labels, relations, every DECISION comment, the newest comments and the description, in one call. |
 | `start_card` | Refuses at the cap, otherwise posts START and moves the card to the work-in-progress column. A card already there is being taken over, so the cap does not apply. |
 | `pause_card` | Posts PAUSE and moves a card in progress out, as described above. `needs_decision` also adds the workspace label `operator-decision`. |
 | `close_card` | Requires evidence, posts DONE and moves the card to the final column. |
 | `decide` | Posts a DECISION comment. Provenance is required. |
-| `board_digest` | Open columns with their cards, counts for Backlog and the final column, and the work-in-progress column against its cap. |
+| `board_digest` | Open columns with their cards and each card's labels, counts for Backlog and the final column, and the work-in-progress column against its cap. |
 | `comment` | Posts a plain comment. Text starting with START, PAUSE, DONE or DECISION is refused. |
-| `find` | Searches cards, one line per card. A full ticket ranks first. |
+| `find` | Searches cards, one line per card with its labels. A full ticket ranks first. |
 | `label`, `unlabel` | Attaches a workspace label by name, or removes a card's copy of it. |
 | `file_card` | Files a card in the intake column unless given another column. Never into the work-in-progress or the final column. Answers the new ticket. |
 | `link`, `unlink` | `blocks`, `subtask` (the ticket is the parent) or `related`, between two cards anywhere in the workspace. Linking twice is a no-op. |
 | `edit_card` | Any subset of title, description, priority, start and due dates, and assignee. Dates and assignee take `none` to clear. |
 | `move_card` | Moves a card to any other column of its project, or to a column of another project, and answers the card's new ticket. |
 | `edit_comment`, `delete_comment` | Takes a comment id, checked to belong to the card. An edit keeps the comment's kind. Only plain comments can be deleted. |
-| `list_cards` | A project's cards by creation date, paged, optionally one column. |
+| `list_cards` | A project's cards by creation date with their labels, paged, optionally one column. |
 | `card_activity` | When the card was created and each status change. |
 | `project_info` | Columns, the rules the server reads, and the whole description. |
 | `edit_project_description` | Replaces the description, refusing an edit that loosens the rules, and answers the rules it now states. |
